@@ -1,1 +1,23 @@
 @import 'tailwindcss';
+
+@theme {
+	--color-apple-blue-400: #7aadff;
+	--color-apple-blue-500: #4d91ff;
+	--color-apple-blue-600: #3d7ce6;
+}
+
+@variant dark (&:where(.dark, .dark *));
+
+/* Smooth dark mode transitions */
+* {
+	transition-property: background-color, border-color, color, fill, stroke;
+	transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+	transition-duration: 200ms;
+}
+
+/* Don't transition transforms and opacity (for animations) */
+.transition-transform,
+.transition-opacity,
+.transition-all {
+	transition-property: all;
+}
