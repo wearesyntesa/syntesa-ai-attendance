@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { attendanceStore } from '$lib/attendance.svelte';
 	import { SvelteDate, SvelteMap } from 'svelte/reactivity';
+	import { fade, fly, scale } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	let logs = $derived(attendanceStore.list.filter((s) => s.attended));
 
@@ -73,6 +75,7 @@
 	<div class="flex flex-1 flex-col overflow-hidden px-6 py-6">
 		<div
 			class="mb-6 flex shrink-0 items-end justify-between gap-4 border-b border-gray-200 pb-4 dark:border-neutral-800"
+			in:fly={{ y: -20, duration: 400, easing: cubicOut }}
 		>
 			<div>
 				<h1 class="text-2xl font-medium tracking-tight text-gray-900 dark:text-neutral-100">
@@ -108,6 +111,7 @@
 		<div class="mb-6 grid shrink-0 grid-cols-2 gap-3 lg:grid-cols-4">
 			<div
 				class="space-y-1 rounded-sm border border-gray-200 bg-white p-4 transition-colors hover:bg-gray-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+				in:scale={{ duration: 400, delay: 100, start: 0.9, easing: cubicOut }}
 			>
 				<span class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600"
 					>Total Entries</span
@@ -118,6 +122,7 @@
 			</div>
 			<div
 				class="space-y-1 rounded-sm border border-gray-200 bg-white p-4 transition-colors hover:bg-gray-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+				in:scale={{ duration: 400, delay: 200, start: 0.9, easing: cubicOut }}
 			>
 				<span class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600"
 					>Avg. Duration</span
@@ -128,6 +133,7 @@
 			</div>
 			<div
 				class="space-y-1 rounded-sm border border-gray-200 bg-white p-4 transition-colors hover:bg-gray-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+				in:scale={{ duration: 400, delay: 300, start: 0.9, easing: cubicOut }}
 			>
 				<span class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600"
 					>Peak Load</span
@@ -136,6 +142,7 @@
 			</div>
 			<div
 				class="space-y-1 rounded-sm border border-gray-200 bg-white p-4 transition-colors hover:bg-gray-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
+				in:scale={{ duration: 400, delay: 400, start: 0.9, easing: cubicOut }}
 			>
 				<span class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600"
 					>Occupancy</span
@@ -147,8 +154,8 @@
 		</div>
 
 		<div class="flex-1 space-y-6 overflow-y-auto">
-			{#each groupedLogs() as [date, dayLogs] (date)}
-				<div class="space-y-3">
+			{#each groupedLogs() as [date, dayLogs], index (date)}
+				<div class="space-y-3" in:fly={{ y: 20, duration: 400, delay: index * 100, easing: cubicOut }}>
 					<div class="flex items-center gap-3">
 						<h2 class="text-base font-medium text-gray-900 dark:text-neutral-100">
 							{formatDate(date)}
@@ -188,9 +195,10 @@
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-gray-100 dark:divide-neutral-800/50">
-									{#each dayLogs as log (log.id)}
+									{#each dayLogs as log, logIndex (log.id)}
 										<tr
 											class="transition-colors duration-300 hover:bg-gray-50 dark:hover:bg-neutral-900"
+											in:fade={{ duration: 300, delay: logIndex * 50 }}
 										>
 											<td class="px-4 py-3">
 												<div class="flex items-center gap-2">
@@ -232,6 +240,7 @@
 			{:else}
 				<div
 					class="overflow-hidden rounded-sm border border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-950"
+					in:scale={{ duration: 400, start: 0.9, easing: cubicOut }}
 				>
 					<div class="px-6 py-12 text-center text-gray-400 dark:text-neutral-600">
 						<svg

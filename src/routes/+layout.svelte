@@ -2,6 +2,8 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { resolve } from '$app/paths';
+	import { fade, fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	let { children } = $props();
 	let isExpanded = $state(false);
@@ -72,7 +74,7 @@
 					/>
 				</svg>
 				{#if isExpanded}
-					<span class="transition-opacity duration-300">Home</span>
+					<span class="transition-opacity duration-300" in:fly={{ x: -10, duration: 200, easing: cubicOut }}>Home</span>
 				{/if}
 			</a>
 			<a
@@ -89,7 +91,7 @@
 					/>
 				</svg>
 				{#if isExpanded}
-					<span class="transition-opacity duration-300">Activity Log</span>
+					<span class="transition-opacity duration-300" in:fly={{ x: -10, duration: 200, easing: cubicOut }}>Activity Log</span>
 				{/if}
 			</a>
 		</nav>
