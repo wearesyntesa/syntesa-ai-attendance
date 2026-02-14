@@ -1,6 +1,5 @@
 import { SvelteDate } from 'svelte/reactivity';
 
-// Master Data definition
 export interface Student {
 	id: number;
 	name: string;
@@ -8,7 +7,6 @@ export interface Student {
 	avatar: string;
 }
 
-// Transactional Data definition
 export interface AttendanceRecord {
 	id: string;
 	studentId: number;
@@ -17,18 +15,18 @@ export interface AttendanceRecord {
 	avatar: string;
 	date: string;
 	timeIn: string;
-	timeOut: string;
 	attended: boolean;
 }
 
 export const attendanceStore = $state({
 	maxCapacity: 60,
 
-	// Explicitly type the arrays to prevent 'any' errors
 	students: [
 		{ id: 1, name: 'Ahmad Fauzi', nim: '22051204001', avatar: 'https://i.pravatar.cc/150?u=1' },
 		{ id: 2, name: 'Siti Aminah', nim: '22051204023', avatar: 'https://i.pravatar.cc/150?u=2' },
-		{ id: 3, name: 'Budi Santoso', nim: '22051204045', avatar: 'https://i.pravatar.cc/150?u=3' }
+		{ id: 3, name: 'Budi Santoso', nim: '22051204045', avatar: 'https://i.pravatar.cc/150?u=3' },
+		{ id: 4, name: 'Dewi Lestari', nim: '22051204012', avatar: 'https://i.pravatar.cc/150?u=4' },
+		{ id: 5, name: 'Rian Hidayat', nim: '22051204067', avatar: 'https://i.pravatar.cc/150?u=5' }
 	] as Student[],
 
 	list: [] as AttendanceRecord[],
@@ -38,13 +36,14 @@ export const attendanceStore = $state({
 	},
 
 	toggle(studentId: number) {
-		// TypeScript now knows 'r' is an AttendanceRecord
-		const activeRecord = this.list.find((r) => r.studentId === studentId && r.attended);
+		const activeRecord = this.list.find(
+			(r: AttendanceRecord) => r.studentId === studentId && r.attended
+		);
 
 		if (!activeRecord) {
 			if (this.occupancy >= this.maxCapacity) return;
 
-			const master = this.students.find((s) => s.id === studentId);
+			const master = this.students.find((s: Student) => s.id === studentId);
 			if (!master) return;
 
 			const newRecord: AttendanceRecord = {
@@ -55,17 +54,12 @@ export const attendanceStore = $state({
 				avatar: master.avatar,
 				date: new SvelteDate().toISOString().split('T')[0],
 				timeIn: new SvelteDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-				timeOut: '-',
 				attended: true
 			};
 
 			this.list.unshift(newRecord);
 		} else {
 			activeRecord.attended = false;
-			activeRecord.timeOut = new SvelteDate().toLocaleTimeString([], {
-				hour: '2-digit',
-				minute: '2-digit'
-			});
 		}
 	}
 });
