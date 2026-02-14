@@ -1,56 +1,71 @@
 import { SvelteDate } from 'svelte/reactivity';
 
-export const attendanceStore = $state({
-	list: [
-		{
-			id: 1,
-			name: 'Ahmad Fauzi',
-			nim: '22051204001',
-			attended: false,
-			timeIn: '-',
-			avatar: 'https://i.pravatar.cc/150?u=1'
-		},
-		{
-			id: 2,
-			name: 'Siti Aminah',
-			nim: '22051204023',
-			attended: false,
-			timeIn: '-',
-			avatar: 'https://i.pravatar.cc/150?u=2'
-		},
-		{
-			id: 3,
-			name: 'Budi Santoso',
-			nim: '22051204045',
-			attended: true,
-			timeIn: '09:15 AM',
-			avatar: 'https://i.pravatar.cc/150?u=3'
-		},
-		{
-			id: 4,
-			name: 'Dewi Lestari',
-			nim: '22051204012',
-			attended: false,
-			timeIn: '-',
-			avatar: 'https://i.pravatar.cc/150?u=4'
-		},
-		{
-			id: 5,
-			name: 'Rian Hidayat',
-			nim: '22051204067',
-			attended: false,
-			timeIn: '-',
-			avatar: 'https://i.pravatar.cc/150?u=5'
-		}
-	],
+// Master Data definition
+export interface Student {
+	id: number;
+	name: string;
+	nim: string;
+	avatar: string;
+}
 
-	toggle(id: number) {
-		const student = this.list.find((s) => s.id === id);
-		if (student) {
-			student.attended = !student.attended;
-			student.timeIn = student.attended
-				? new SvelteDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-				: '-';
+// Transactional Data definition
+export interface AttendanceRecord {
+	id: string;
+	studentId: number;
+	name: string;
+	nim: string;
+	avatar: string;
+	date: string;
+	timeIn: string;
+	timeOut: string;
+	attended: boolean;
+}
+
+export const attendanceStore = $state({
+	maxCapacity: 60,
+
+	// Explicitly type the arrays to prevent 'any' errors
+	students: [
+		{ id: 1, name: 'Ahmad Fauzi', nim: '22051204001', avatar: 'https://i.pravatar.cc/150?u=1' },
+		{ id: 2, name: 'Siti Aminah', nim: '22051204023', avatar: 'https://i.pravatar.cc/150?u=2' },
+		{ id: 3, name: 'Budi Santoso', nim: '22051204045', avatar: 'https://i.pravatar.cc/150?u=3' }
+	] as Student[],
+
+	list: [] as AttendanceRecord[],
+
+	get occupancy(): number {
+		return this.list.filter((r: AttendanceRecord) => r.attended).length;
+	},
+
+	toggle(studentId: number) {
+		// TypeScript now knows 'r' is an AttendanceRecord
+		const activeRecord = this.list.find((r) => r.studentId === studentId && r.attended);
+
+		if (!activeRecord) {
+			if (this.occupancy >= this.maxCapacity) return;
+
+			const master = this.students.find((s) => s.id === studentId);
+			if (!master) return;
+
+			const newRecord: AttendanceRecord = {
+				id: crypto.randomUUID(),
+				studentId: master.id,
+				name: master.name,
+				nim: master.nim,
+				avatar: master.avatar,
+				date: new SvelteDate().toISOString().split('T')[0],
+				timeIn: new SvelteDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+				timeOut: '-',
+				attended: true
+			};
+
+			this.list.unshift(newRecord);
+		} else {
+			activeRecord.attended = false;
+			activeRecord.timeOut = new SvelteDate().toLocaleTimeString([], {
+				hour: '2-digit',
+				minute: '2-digit'
+			});
 		}
 	}
 });

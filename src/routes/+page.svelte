@@ -1,16 +1,32 @@
 <script lang="ts">
-	import { attendanceStore } from '$lib/attendance.svelte';
+	import { attendanceStore, type Student, type AttendanceRecord } from '$lib/attendance.svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
 	let searchQuery = $state('');
-	let foundStudent = $state<(typeof attendanceStore.list)[0] | null>(null);
+	let foundStudent = $state<Student | null>(null);
 	let errorMessage = $state('');
 
+	// --- Capacity & Status Logic ---
+	const MAX_CAPACITY = 60;
+
+	// Check if the lab is full
+	let currentInside = $derived(
+		attendanceStore.list.filter((r: AttendanceRecord) => r.attended).length
+	);
+	let isFull = $derived(currentInside >= MAX_CAPACITY);
+
+	// Look for an active attendance record for the found student
+	let activeRecord = $derived(
+		foundStudent
+			? attendanceStore.list.find(
+					(r: AttendanceRecord) => r.studentId === foundStudent!.id && r.attended
+				)
+			: null
+	);
+
 	const handleSearch = (e: KeyboardEvent) => {
-		if (e.key === 'Enter') {
-			searchStudent();
-		}
+		if (e.key === 'Enter') searchStudent();
 	};
 
 	const searchStudent = () => {
@@ -21,7 +37,8 @@
 			return;
 		}
 
-		const student = attendanceStore.list.find((s) => s.nim === nim);
+		// Search the Master Student list
+		const student = attendanceStore.students.find((s: Student) => s.nim === nim);
 
 		if (student) {
 			foundStudent = student;
@@ -55,7 +72,7 @@
 						Inside
 					</p>
 					<p class="mt-1 text-xl font-medium text-gray-900 tabular-nums dark:text-neutral-100">
-						{attendanceStore.list.filter((s) => s.attended).length}
+						{currentInside}
 					</p>
 				</div>
 				<div class="h-10 w-px bg-gray-200 dark:bg-neutral-800"></div>
@@ -64,7 +81,7 @@
 						Capacity
 					</p>
 					<p class="mt-1 text-xl font-medium text-gray-900 tabular-nums dark:text-neutral-100">
-						40
+						{MAX_CAPACITY}
 					</p>
 				</div>
 			</div>
@@ -103,12 +120,9 @@
 					/>
 				</div>
 
-				{#if searchQuery.trim() && !errorMessage}
-					<p class="text-sm font-light text-gray-500 dark:text-neutral-400" in:fade={{ duration: 200 }}>
-						Press <kbd
-							class="rounded border border-gray-300 bg-gray-50 px-2 py-0.5 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-900"
-							>Enter</kbd
-						> to search
+				{#if isFull}
+					<p class="text-sm font-medium text-amber-600 dark:text-amber-400">
+						⚠️ Lab is currently at maximum capacity.
 					</p>
 				{/if}
 
@@ -117,25 +131,9 @@
 						class="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-900/10"
 						in:scale={{ duration: 300, start: 0.9, easing: cubicOut }}
 					>
-						<p class="text-sm font-medium text-red-600 dark:text-red-400">
-							{errorMessage}
-						</p>
+						<p class="text-sm font-medium text-red-600 dark:text-red-400">{errorMessage}</p>
 					</div>
 				{/if}
-
-				<div class="pt-4">
-					<div class="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-neutral-400">
-						<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-							/>
-						</svg>
-						<span class="font-light">Enter your full NIM to continue</span>
-					</div>
-				</div>
 			</div>
 		</div>
 	{:else}
@@ -144,14 +142,14 @@
 				onclick={clearSearch}
 				class="mb-4 inline-flex w-fit items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
 			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+					><path
 						stroke-linecap="round"
 						stroke-linejoin="round"
 						stroke-width="2"
 						d="M10 19l-7-7m0 0l7-7m-7 7h18"
-					/>
-				</svg>
+					/></svg
+				>
 				New Search
 			</button>
 
@@ -165,10 +163,9 @@
 							Student Profile
 						</h1>
 						<p class="mt-1 text-sm leading-relaxed font-light text-gray-600 dark:text-neutral-400">
-							Attendance information and check-in status
+							Status: {activeRecord ? 'Checked In' : 'Checked Out'}
 						</p>
 					</div>
-
 					<div class="flex gap-4">
 						<div class="text-right">
 							<p
@@ -177,7 +174,7 @@
 								Inside
 							</p>
 							<p class="mt-1 text-lg font-medium text-gray-900 tabular-nums dark:text-neutral-100">
-								{attendanceStore.list.filter((s) => s.attended).length}
+								{currentInside}
 							</p>
 						</div>
 						<div class="h-10 w-px bg-gray-200 dark:bg-neutral-800"></div>
@@ -188,7 +185,7 @@
 								Capacity
 							</p>
 							<p class="mt-1 text-lg font-medium text-gray-900 tabular-nums dark:text-neutral-100">
-								40
+								{MAX_CAPACITY}
 							</p>
 						</div>
 					</div>
@@ -205,15 +202,14 @@
 							<div class="text-center">
 								<img
 									src={foundStudent.avatar}
-									alt="{foundStudent.name} avatar"
+									alt={foundStudent.name}
 									class="mx-auto h-64 w-64 rounded-full bg-gray-100 object-cover ring-8 ring-gray-200 dark:bg-neutral-800 dark:ring-neutral-700"
 									in:scale={{ duration: 600, delay: 300, start: 0.8, easing: cubicOut }}
 								/>
 								<div class="mt-8">
-									{#if foundStudent.attended}
+									{#if activeRecord}
 										<div
 											class="inline-flex items-center gap-3 rounded-full bg-apple-blue-500/10 px-6 py-2 dark:bg-apple-blue-400/10"
-											in:scale={{ duration: 400, delay: 500, start: 0.9, easing: cubicOut }}
 										>
 											<span
 												class="h-2.5 w-2.5 animate-pulse rounded-full bg-apple-blue-500 dark:bg-apple-blue-400"
@@ -226,7 +222,6 @@
 									{:else}
 										<div
 											class="inline-flex items-center gap-3 rounded-full bg-gray-100 px-6 py-2 dark:bg-neutral-800"
-											in:scale={{ duration: 400, delay: 500, start: 0.9, easing: cubicOut }}
 										>
 											<span class="h-2.5 w-2.5 rounded-full bg-gray-400 dark:bg-neutral-600"></span>
 											<span class="text-sm font-semibold text-gray-600 dark:text-neutral-400"
@@ -239,7 +234,10 @@
 						</div>
 
 						<div class="flex items-center p-12 lg:p-16">
-							<div class="w-full space-y-10" in:fly={{ x: 20, duration: 600, delay: 300, easing: cubicOut }}>
+							<div
+								class="w-full space-y-10"
+								in:fly={{ x: 20, duration: 600, delay: 300, easing: cubicOut }}
+							>
 								<div class="space-y-2">
 									<p
 										class="font-mono text-sm tracking-widest text-gray-400 uppercase dark:text-neutral-600"
@@ -264,8 +262,7 @@
 											{foundStudent.nim}
 										</p>
 									</div>
-
-									{#if foundStudent.attended}
+									{#if activeRecord}
 										<div class="grid grid-cols-2 gap-4">
 											<div>
 												<p
@@ -274,15 +271,14 @@
 													Check-in Time
 												</p>
 												<p class="mt-1 text-2xl text-gray-900 tabular-nums dark:text-neutral-100">
-													{foundStudent.timeIn}
+													{activeRecord.timeIn}
 												</p>
 											</div>
-
 											<div>
 												<p
 													class="font-mono text-sm tracking-widest text-gray-400 uppercase dark:text-neutral-600"
 												>
-													Duration
+													Status
 												</p>
 												<p class="mt-1 text-2xl text-gray-900 dark:text-neutral-100">Active</p>
 											</div>
@@ -292,16 +288,24 @@
 
 								<div class="pt-6">
 									<button
+										disabled={!activeRecord && isFull}
 										onclick={() => {
-											if (foundStudent) {
-												attendanceStore.toggle(foundStudent.id);
-											}
+											if (foundStudent) attendanceStore.toggle(foundStudent.id);
 										}}
-										class="inline-flex h-16 w-full items-center justify-center rounded-lg px-8 py-4 text-lg font-bold transition-all duration-200 focus:outline-2 focus:outline-offset-2 active:scale-[0.98] {foundStudent.attended
-											? 'border-2 border-gray-200 bg-white text-gray-900 hover:bg-gray-50 focus:outline-apple-blue-500 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:hover:bg-neutral-900 dark:focus:outline-apple-blue-400'
-											: 'bg-apple-blue-500 text-white shadow-lg shadow-apple-blue-500/20 hover:bg-apple-blue-600 focus:outline-apple-blue-500 dark:bg-apple-blue-400 dark:text-white dark:hover:bg-apple-blue-500 dark:focus:outline-apple-blue-400'}"
+										class="inline-flex h-16 w-full items-center justify-center rounded-lg px-8 py-4 text-lg font-bold transition-all duration-200 focus:outline-2 focus:outline-offset-2 active:scale-[0.98]
+                                        {activeRecord
+											? 'border-2 border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100'
+											: isFull
+												? 'cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-neutral-800 dark:text-neutral-600'
+												: 'bg-apple-blue-500 text-white shadow-lg shadow-apple-blue-500/20 hover:bg-apple-blue-600 dark:bg-apple-blue-400'}"
 									>
-										{foundStudent.attended ? 'Check Out Student' : 'Check In Student'}
+										{#if activeRecord}
+											Check Out Student
+										{:else if isFull}
+											Lab is Full (60/60)
+										{:else}
+											Check In Student
+										{/if}
 									</button>
 								</div>
 							</div>

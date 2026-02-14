@@ -4,7 +4,7 @@
 	import { fade, fly, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 
-	let logs = $derived(attendanceStore.list.filter((s) => s.attended));
+	let logs = $derived(attendanceStore.list);
 
 	// Group logs by date
 	let groupedLogs = $derived(() => {
@@ -13,7 +13,7 @@
 		logs.forEach((log) => {
 			// Extract date from timeIn (assuming format like "09:30 AM")
 			// For now, use today's date as dummy. Replace with actual date from your data
-			const date = new Date().toISOString().split('T')[0];
+			const date = log.date || new Date().toISOString().split('T')[0];
 
 			if (!groups.has(date)) {
 				groups.set(date, []);
@@ -48,13 +48,14 @@
 
 	const exportToCSV = () => {
 		// Create CSV content with dates
-		const headers = ['Date', 'Name', 'Student ID', 'Time In', 'Status'];
+		const headers = ['Date', 'Name', 'Student ID', 'Time In', 'Time Out', 'Status'];
 		const rows = logs.map((log) => [
-			new Date().toISOString().split('T')[0], // Replace with actual date from log
+			log.date || new Date().toISOString().split('T')[0], // Replace with actual date from log
 			log.name,
 			log.nim,
 			log.timeIn,
-			'Present'
+			log.timeOut || '-',
+			log.attended ? 'Inside' : 'Checked Out'
 		]);
 		const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
 
@@ -63,7 +64,10 @@
 		const link = document.createElement('a');
 		const url = URL.createObjectURL(blob);
 		link.setAttribute('href', url);
-		link.setAttribute('download', `attendance_log_${new Date().toISOString().split('T')[0]}.csv`);
+		link.setAttribute(
+			'download',
+			`attendance_history_${new Date().toISOString().split('T')[0]}.csv`
+		);
 		link.style.visibility = 'hidden';
 		document.body.appendChild(link);
 		link.click();
@@ -79,10 +83,10 @@
 		>
 			<div>
 				<h1 class="text-2xl font-medium tracking-tight text-gray-900 dark:text-neutral-100">
-					Activity Log
+					Attendance History
 				</h1>
 				<p class="mt-1 text-sm leading-relaxed font-light text-gray-600 dark:text-neutral-400">
-					Real-time overview of laboratory occupancy and duration.
+					Comprehensive record of laboratory usage and student activity.
 				</p>
 			</div>
 
@@ -104,7 +108,7 @@
 						d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
 					/>
 				</svg>
-				Export CSV
+				Export History
 			</button>
 		</div>
 
@@ -114,7 +118,7 @@
 				in:scale={{ duration: 400, delay: 100, start: 0.9, easing: cubicOut }}
 			>
 				<span class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600"
-					>Total Entries</span
+					>Total Records</span
 				>
 				<p class="text-xl font-medium text-gray-900 tabular-nums dark:text-neutral-100">
 					{logs.length}
@@ -136,26 +140,31 @@
 				in:scale={{ duration: 400, delay: 300, start: 0.9, easing: cubicOut }}
 			>
 				<span class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600"
-					>Peak Load</span
+					>Peak Day</span
 				>
-				<p class="text-xl font-medium text-gray-900 tabular-nums dark:text-neutral-100">10:00</p>
+				<p class="text-xl font-medium text-gray-900 tabular-nums dark:text-neutral-100">Mon</p>
 			</div>
 			<div
 				class="space-y-1 rounded-sm border border-gray-200 bg-white p-4 transition-colors hover:bg-gray-50 dark:border-neutral-800 dark:bg-neutral-950 dark:hover:bg-neutral-900"
 				in:scale={{ duration: 400, delay: 400, start: 0.9, easing: cubicOut }}
 			>
 				<span class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600"
-					>Occupancy</span
+					>Live Occupancy</span
 				>
 				<p class="text-xl font-medium text-gray-900 tabular-nums dark:text-neutral-100">
-					{logs.length}<span class="text-gray-300 dark:text-neutral-600">/40</span>
+					{logs.filter((l) => l.attended).length}<span class="text-gray-300 dark:text-neutral-600"
+						>/60</span
+					>
 				</p>
 			</div>
 		</div>
 
 		<div class="flex-1 space-y-6 overflow-y-auto">
 			{#each groupedLogs() as [date, dayLogs], index (date)}
-				<div class="space-y-3" in:fly={{ y: 20, duration: 400, delay: index * 100, easing: cubicOut }}>
+				<div
+					class="space-y-3"
+					in:fly={{ y: 20, duration: 400, delay: index * 100, easing: cubicOut }}
+				>
 					<div class="flex items-center gap-3">
 						<h2 class="text-base font-medium text-gray-900 dark:text-neutral-100">
 							{formatDate(date)}
@@ -163,7 +172,7 @@
 						<span class="font-mono text-xs text-gray-400 dark:text-neutral-600">{date}</span>
 						<div class="h-px flex-1 bg-gray-200 dark:bg-neutral-800"></div>
 						<span class="text-xs font-light text-gray-500 dark:text-neutral-400"
-							>{dayLogs.length} {dayLogs.length === 1 ? 'entry' : 'entries'}</span
+							>{dayLogs.length} {dayLogs.length === 1 ? 'record' : 'records'}</span
 						>
 					</div>
 
@@ -187,6 +196,10 @@
 										<th
 											class="px-4 py-3 font-mono text-xs tracking-wider text-gray-500 uppercase dark:text-neutral-400"
 											>Time In</th
+										>
+										<th
+											class="px-4 py-3 font-mono text-xs tracking-wider text-gray-500 uppercase dark:text-neutral-400"
+											>Time Out</th
 										>
 										<th
 											class="px-4 py-3 text-right font-mono text-xs tracking-wider text-gray-500 uppercase dark:text-neutral-400"
@@ -220,15 +233,27 @@
 												class="px-4 py-3 font-light text-gray-600 tabular-nums dark:text-neutral-400"
 												>{log.timeIn}</td
 											>
+											<td
+												class="px-4 py-3 font-light text-gray-600 tabular-nums dark:text-neutral-400"
+												>{log.timeOut || '—'}</td
+											>
 											<td class="px-4 py-3 text-right">
-												<span
-													class="inline-flex items-center gap-1.5 rounded-sm bg-apple-blue-500/10 px-2.5 py-1 text-xs font-medium text-apple-blue-600 dark:bg-apple-blue-400/10 dark:text-white"
-												>
+												{#if log.attended}
 													<span
-														class="h-1.5 w-1.5 animate-pulse rounded-full bg-apple-blue-500 dark:bg-white"
-													></span>
-													Present
-												</span>
+														class="inline-flex items-center gap-1.5 rounded-sm bg-apple-blue-500/10 px-2.5 py-1 text-xs font-medium text-apple-blue-600 dark:bg-apple-blue-400/10 dark:text-apple-blue-400"
+													>
+														<span
+															class="h-1.5 w-1.5 animate-pulse rounded-full bg-apple-blue-500 dark:bg-apple-blue-400"
+														></span>
+														Inside
+													</span>
+												{:else}
+													<span
+														class="inline-flex items-center gap-1.5 rounded-sm bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 dark:bg-neutral-800 dark:text-neutral-400"
+													>
+														Left Lab
+													</span>
+												{/if}
 											</td>
 										</tr>
 									{/each}
@@ -256,8 +281,8 @@
 								d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
 							/>
 						</svg>
-						<p class="font-medium text-gray-900 dark:text-neutral-100">No active records found.</p>
-						<p class="mt-1 text-xs font-light">Check-ins will appear here automatically.</p>
+						<p class="font-medium text-gray-900 dark:text-neutral-100">No history found.</p>
+						<p class="mt-1 text-xs font-light">Logs will be grouped by date once recorded.</p>
 					</div>
 				</div>
 			{/each}
