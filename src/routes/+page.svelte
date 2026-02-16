@@ -2,21 +2,22 @@
 	import { attendanceStore, type Student, type AttendanceRecord } from '$lib/attendance.svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import Notification from '$lib/components/Notification.svelte';
 
 	let searchQuery = $state('');
 	let foundStudent = $state<Student | null>(null);
 	let errorMessage = $state('');
 
-	// --- Capacity & Status Logic ---
+	let showToast = $state(false);
+	let toastConfig = $state({ type: 'info' as 'info' | 'success', msg: '', desc: '' });
+
 	const MAX_CAPACITY = 60;
 
-	// Check if the lab is full
 	let currentInside = $derived(
 		attendanceStore.list.filter((r: AttendanceRecord) => r.attended).length
 	);
 	let isFull = $derived(currentInside >= MAX_CAPACITY);
 
-	// Look for an active attendance record for the found student
 	let activeRecord = $derived(
 		foundStudent
 			? attendanceStore.list.find(
@@ -36,10 +37,7 @@
 			foundStudent = null;
 			return;
 		}
-
-		// Search the Master Student list
 		const student = attendanceStore.students.find((s: Student) => s.nim === nim);
-
 		if (student) {
 			foundStudent = student;
 			errorMessage = '';
@@ -61,14 +59,37 @@
 		foundStudent = null;
 		errorMessage = '';
 	};
+
+	const toggleAttendance = () => {
+		if (!foundStudent) return;
+		const isCheckingIn = !activeRecord;
+		attendanceStore.toggle(foundStudent.id);
+
+		toastConfig = {
+			type: 'info',
+			msg: isCheckingIn ? 'Check-in Successful' : 'Check-out Successful',
+			desc: isCheckingIn
+				? "Welcome! Don't forget to check out before you leave."
+				: 'Thank you for coming! Have a great day.'
+		};
+
+		showToast = true;
+		setTimeout(() => {
+			showToast = false;
+		}, 3000);
+	};
 </script>
 
-<div class="relative flex h-full flex-col bg-white dark:bg-neutral-950">
+{#if showToast}
+	<Notification type={toastConfig.type} message={toastConfig.msg} description={toastConfig.desc} />
+{/if}
+
+<div class="relative flex h-full flex-col bg-transparent">
 	{#if !foundStudent}
 		<div class="flex flex-1 flex-col items-center justify-center px-6" in:fade={{ duration: 300 }}>
 			<div class="absolute top-6 right-6 flex gap-4">
 				<div class="text-right">
-					<p class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600">
+					<p class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-500">
 						Inside
 					</p>
 					<p class="mt-1 text-xl font-medium text-gray-900 tabular-nums dark:text-neutral-100">
@@ -77,7 +98,7 @@
 				</div>
 				<div class="h-10 w-px bg-gray-200 dark:bg-neutral-800"></div>
 				<div class="text-right">
-					<p class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600">
+					<p class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-500">
 						Capacity
 					</p>
 					<p class="mt-1 text-xl font-medium text-gray-900 tabular-nums dark:text-neutral-100">
@@ -98,7 +119,7 @@
 
 				<div class="group relative" in:fly={{ y: 20, duration: 600, delay: 200, easing: cubicOut }}>
 					<svg
-						class="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-apple-blue-500 dark:text-neutral-600 dark:group-focus-within:text-apple-blue-400"
+						class="pointer-events-none absolute top-1/2 left-4 z-10 h-5 w-5 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-apple-blue-500 dark:text-neutral-600 dark:group-focus-within:text-apple-blue-400"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -116,19 +137,16 @@
 						oninput={handleInput}
 						onkeydown={handleSearch}
 						placeholder="Enter your NIM..."
-						class="w-full rounded-lg border border-gray-200 bg-white py-3 pr-6 pl-12 text-base text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:border-apple-blue-500 focus:outline-2 focus:outline-offset-2 focus:outline-apple-blue-500 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 dark:placeholder:text-neutral-600 dark:focus:border-apple-blue-400 dark:focus:outline-apple-blue-400"
+						class="relative w-full rounded-lg border border-gray-200 bg-white/80 py-3 pr-6 pl-12 text-base text-gray-900 backdrop-blur-sm transition-all outline-none focus:border-apple-blue-500 focus:outline-2 focus:outline-offset-2 focus:outline-apple-blue-500 dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-100 dark:placeholder:text-neutral-600"
 					/>
 				</div>
 
-				{#if isFull}
-					<p class="text-sm font-medium text-amber-600 dark:text-amber-400">
+				{#if isFull}<p class="text-sm font-medium text-amber-600 dark:text-amber-400">
 						⚠️ Lab is currently at maximum capacity.
-					</p>
-				{/if}
-
+					</p>{/if}
 				{#if errorMessage}
 					<div
-						class="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-900/10"
+						class="rounded-lg border border-red-200 bg-red-50/80 p-3 backdrop-blur-sm dark:border-red-900/50 dark:bg-red-900/20"
 						in:scale={{ duration: 300, start: 0.9, easing: cubicOut }}
 					>
 						<p class="text-sm font-medium text-red-600 dark:text-red-400">{errorMessage}</p>
@@ -140,7 +158,7 @@
 		<div class="flex h-full flex-col px-6 py-4" in:fade={{ duration: 300 }}>
 			<button
 				onclick={clearSearch}
-				class="mb-4 inline-flex w-fit items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
+				class="mb-4 inline-flex w-fit items-center gap-2 rounded-sm px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-900/50"
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
 					><path
@@ -162,73 +180,45 @@
 						<h1 class="text-2xl font-medium tracking-tight text-gray-900 dark:text-neutral-100">
 							Student Profile
 						</h1>
-						<p class="mt-1 text-sm leading-relaxed font-light text-gray-600 dark:text-neutral-400">
+						<p class="mt-1 text-sm font-light text-gray-600 dark:text-neutral-400">
 							Status: {activeRecord ? 'Checked In' : 'Checked Out'}
 						</p>
-					</div>
-					<div class="flex gap-4">
-						<div class="text-right">
-							<p
-								class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600"
-							>
-								Inside
-							</p>
-							<p class="mt-1 text-lg font-medium text-gray-900 tabular-nums dark:text-neutral-100">
-								{currentInside}
-							</p>
-						</div>
-						<div class="h-10 w-px bg-gray-200 dark:bg-neutral-800"></div>
-						<div class="text-right">
-							<p
-								class="font-mono text-xs tracking-wider text-gray-400 uppercase dark:text-neutral-600"
-							>
-								Capacity
-							</p>
-							<p class="mt-1 text-lg font-medium text-gray-900 tabular-nums dark:text-neutral-100">
-								{MAX_CAPACITY}
-							</p>
-						</div>
 					</div>
 				</header>
 
 				<div
-					class="flex-1 overflow-hidden rounded-sm border border-gray-200 bg-white dark:border-neutral-800 dark:bg-neutral-950"
+					class="flex-1 overflow-hidden rounded-sm border border-gray-200 bg-white/60 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/40"
 					in:scale={{ duration: 500, delay: 200, start: 0.95, easing: cubicOut }}
 				>
 					<div class="grid h-full grid-cols-1 lg:grid-cols-2">
 						<div
-							class="flex items-center justify-center border-b border-gray-200 bg-gray-50/50 p-12 lg:border-r lg:border-b-0 dark:border-neutral-800 dark:bg-neutral-900/50"
+							class="flex items-center justify-center border-b border-gray-200 bg-gray-50/30 p-12 lg:border-r lg:border-b-0 dark:border-neutral-800 dark:bg-neutral-800/20"
 						>
 							<div class="text-center">
 								<img
 									src={foundStudent.avatar}
 									alt={foundStudent.name}
-									class="mx-auto h-64 w-64 rounded-full bg-gray-100 object-cover ring-8 ring-gray-200 dark:bg-neutral-800 dark:ring-neutral-700"
+									class="mx-auto h-64 w-64 rounded-full bg-gray-100 object-cover ring-8 ring-gray-200/50 dark:bg-neutral-800 dark:ring-neutral-700/50"
 									in:scale={{ duration: 600, delay: 300, start: 0.8, easing: cubicOut }}
 								/>
 								<div class="mt-8">
-									{#if activeRecord}
-										<div
-											class="inline-flex items-center gap-3 rounded-full bg-apple-blue-500/10 px-6 py-2 dark:bg-apple-blue-400/10"
+									<div
+										class="inline-flex items-center gap-3 rounded-full {activeRecord
+											? 'bg-apple-blue-500/10'
+											: 'bg-gray-100/50 dark:bg-neutral-800/50'} px-6 py-2"
+									>
+										<span
+											class="h-2.5 w-2.5 rounded-full {activeRecord
+												? 'animate-pulse bg-apple-blue-500'
+												: 'bg-gray-400'}"
+										></span>
+										<span
+											class="text-sm font-semibold {activeRecord
+												? 'text-apple-blue-600'
+												: 'text-gray-600 dark:text-neutral-400'}"
+											>{activeRecord ? 'Currently Inside' : 'Not Checked In'}</span
 										>
-											<span
-												class="h-2.5 w-2.5 animate-pulse rounded-full bg-apple-blue-500 dark:bg-apple-blue-400"
-											></span>
-											<span
-												class="text-sm font-semibold text-apple-blue-600 dark:text-apple-blue-400"
-												>Currently Inside</span
-											>
-										</div>
-									{:else}
-										<div
-											class="inline-flex items-center gap-3 rounded-full bg-gray-100 px-6 py-2 dark:bg-neutral-800"
-										>
-											<span class="h-2.5 w-2.5 rounded-full bg-gray-400 dark:bg-neutral-600"></span>
-											<span class="text-sm font-semibold text-gray-600 dark:text-neutral-400"
-												>Not Checked In</span
-											>
-										</div>
-									{/if}
+									</div>
 								</div>
 							</div>
 						</div>
@@ -239,11 +229,7 @@
 								in:fly={{ x: 20, duration: 600, delay: 300, easing: cubicOut }}
 							>
 								<div class="space-y-2">
-									<p
-										class="font-mono text-sm tracking-widest text-gray-400 uppercase dark:text-neutral-600"
-									>
-										Full Name
-									</p>
+									<p class="font-mono text-sm tracking-widest text-gray-400 uppercase">Full Name</p>
 									<h2 class="text-5xl font-bold tracking-tight text-gray-900 dark:text-neutral-100">
 										{foundStudent.name}
 									</h2>
@@ -251,13 +237,11 @@
 
 								<div class="grid grid-cols-1 gap-10">
 									<div>
-										<p
-											class="font-mono text-sm tracking-widest text-gray-400 uppercase dark:text-neutral-600"
-										>
+										<p class="font-mono text-sm tracking-widest text-gray-400 uppercase">
 											Student ID (NIM)
 										</p>
 										<p
-											class="mt-1 font-mono text-3xl font-light text-gray-900 tabular-nums dark:text-neutral-100"
+											class="mt-1 font-mono text-3xl font-light text-gray-900 dark:text-neutral-100"
 										>
 											{foundStudent.nim}
 										</p>
@@ -265,19 +249,15 @@
 									{#if activeRecord}
 										<div class="grid grid-cols-2 gap-4">
 											<div>
-												<p
-													class="font-mono text-sm tracking-widest text-gray-400 uppercase dark:text-neutral-600"
-												>
+												<p class="font-mono text-sm tracking-widest text-gray-400 uppercase">
 													Check-in Time
 												</p>
-												<p class="mt-1 text-2xl text-gray-900 tabular-nums dark:text-neutral-100">
+												<p class="mt-1 text-2xl text-gray-900 dark:text-neutral-100">
 													{activeRecord.timeIn}
 												</p>
 											</div>
 											<div>
-												<p
-													class="font-mono text-sm tracking-widest text-gray-400 uppercase dark:text-neutral-600"
-												>
+												<p class="font-mono text-sm tracking-widest text-gray-400 uppercase">
 													Status
 												</p>
 												<p class="mt-1 text-2xl text-gray-900 dark:text-neutral-100">Active</p>
@@ -289,23 +269,19 @@
 								<div class="pt-6">
 									<button
 										disabled={!activeRecord && isFull}
-										onclick={() => {
-											if (foundStudent) attendanceStore.toggle(foundStudent.id);
-										}}
-										class="inline-flex h-16 w-full items-center justify-center rounded-lg px-8 py-4 text-lg font-bold transition-all duration-200 focus:outline-2 focus:outline-offset-2 active:scale-[0.98]
+										onclick={toggleAttendance}
+										class="inline-flex h-16 w-full items-center justify-center rounded-lg px-8 py-4 text-lg font-bold transition-all duration-200 active:scale-[0.98]
                                         {activeRecord
-											? 'border-2 border-gray-200 bg-white text-gray-900 hover:bg-gray-50 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100'
+											? 'border-2 border-gray-200 bg-white/80 text-gray-900 hover:bg-gray-50/80 dark:border-neutral-800 dark:bg-neutral-950/80 dark:text-neutral-100'
 											: isFull
 												? 'cursor-not-allowed bg-gray-200 text-gray-400 dark:bg-neutral-800 dark:text-neutral-600'
 												: 'bg-apple-blue-500 text-white shadow-lg shadow-apple-blue-500/20 hover:bg-apple-blue-600 dark:bg-apple-blue-400'}"
 									>
-										{#if activeRecord}
-											Check Out Student
-										{:else if isFull}
-											Lab is Full (60/60)
-										{:else}
-											Check In Student
-										{/if}
+										{activeRecord
+											? 'Check Out Student'
+											: isFull
+												? 'Lab is Full (60/60)'
+												: 'Check In Student'}
 									</button>
 								</div>
 							</div>

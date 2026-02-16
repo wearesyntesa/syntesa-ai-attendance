@@ -2,8 +2,9 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import { resolve } from '$app/paths';
-	import { fade, fly } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
+	import UniverseBg from '$lib/components/UniverseBg.svelte';
 
 	let { children } = $props();
 	let isExpanded = $state(false);
@@ -29,9 +30,11 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<div class="flex h-screen overflow-hidden bg-white dark:bg-neutral-950">
+<UniverseBg />
+
+<div class="relative flex h-screen overflow-hidden bg-transparent">
 	<aside
-		class="flex flex-col border-r border-gray-200 bg-white text-gray-900 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-100 {isExpanded
+		class="flex flex-col border-r border-gray-200 bg-white/80 text-gray-900 backdrop-blur-md transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] dark:border-neutral-800 dark:bg-neutral-950/80 dark:text-neutral-100 {isExpanded
 			? 'w-64'
 			: 'w-16'}"
 	>
@@ -74,7 +77,10 @@
 					/>
 				</svg>
 				{#if isExpanded}
-					<span class="transition-opacity duration-300" in:fly={{ x: -10, duration: 200, easing: cubicOut }}>Home</span>
+					<span
+						class="transition-opacity duration-300"
+						in:fly={{ x: -10, duration: 200, easing: cubicOut }}>Home</span
+					>
 				{/if}
 			</a>
 			<a
@@ -91,18 +97,20 @@
 					/>
 				</svg>
 				{#if isExpanded}
-					<span class="transition-opacity duration-300" in:fly={{ x: -10, duration: 200, easing: cubicOut }}>Activity Log</span>
+					<span
+						class="transition-opacity duration-300"
+						in:fly={{ x: -10, duration: 200, easing: cubicOut }}>Activity Log</span
+					>
 				{/if}
 			</a>
 		</nav>
 	</aside>
 
-	<div class="flex flex-1 flex-col overflow-hidden">
+	<div class="flex flex-1 flex-col overflow-hidden bg-transparent">
 		<header
-			class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6 py-2 dark:border-neutral-800 dark:bg-neutral-950"
+			class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white/40 px-6 py-2 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-950/40"
 		>
 			<h1 class="text-sm font-medium text-gray-900 dark:text-neutral-100">SE & AI LAB @ UNESA</h1>
-
 			<button
 				onclick={toggleDark}
 				class="group relative flex items-center justify-center rounded-sm p-2 text-gray-600 transition-colors duration-200 hover:bg-gray-100/50 focus:outline-2 focus:outline-offset-2 focus:outline-apple-blue-500 dark:text-neutral-400 dark:hover:bg-neutral-800/50 dark:focus:outline-apple-blue-400"
@@ -144,12 +152,12 @@
 			</button>
 		</header>
 
-		<main class="flex-1 overflow-y-auto bg-white dark:bg-neutral-950">
+		<main class="flex-1 overflow-y-auto bg-transparent">
 			{@render children()}
 		</main>
 
 		<footer
-			class="shrink-0 border-t border-gray-200 bg-white px-6 py-1.5 text-center dark:border-neutral-800 dark:bg-neutral-950"
+			class="shrink-0 border-t border-gray-200 bg-white/40 px-6 py-1.5 text-center backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-950/40"
 		>
 			<p class="text-xs text-gray-500 dark:text-neutral-400">
 				© {new Date().getFullYear()} SE LAB UNESA
