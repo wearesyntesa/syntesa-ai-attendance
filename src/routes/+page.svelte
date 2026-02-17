@@ -1,8 +1,19 @@
 <script lang="ts">
-	import { attendanceStore, type Student, type AttendanceRecord } from '$lib/attendance.svelte';
 	import { fade, fly, scale } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import Notification from '$lib/components/Notification.svelte';
+	import { api } from '$lib/api';
+	import { onMount } from 'svelte';
+
+	interface Student {
+		name: string;
+		nim: string;
+		avatar: string;
+	}
+
+	interface AttendanceRecord {
+		timeIn: string;
+	}
 
 	let searchQuery = $state('');
 	let foundStudent = $state<Student | null>(null);
@@ -13,37 +24,74 @@
 
 	const MAX_CAPACITY = 60;
 
-	let currentInside = $derived(
-		attendanceStore.list.filter((r: AttendanceRecord) => r.attended).length
-	);
+	let currentInside = $state(0);
 	let isFull = $derived(currentInside >= MAX_CAPACITY);
 
-	let activeRecord = $derived(
-		foundStudent
-			? attendanceStore.list.find(
-					(r: AttendanceRecord) => r.studentId === foundStudent!.id && r.attended
-				)
-			: null
-	);
+	let activeRecord = $state<AttendanceRecord | null>(null);
+
+	onMount(async () => {
+		await loadOccupancy();
+	});
+
+	const loadOccupancy = async () => {
+		const { data } = await api.getHistory();
+		if (data) {
+			currentInside = data.filter((record) => !record.check_out).length;
+		}
+	};
 
 	const handleSearch = (e: KeyboardEvent) => {
 		if (e.key === 'Enter') searchStudent();
 	};
 
-	const searchStudent = () => {
-		const nim = searchQuery.trim();
-		if (!nim) {
+	const searchStudent = async () => {
+		const query = searchQuery.trim();
+		if (!query) {
 			errorMessage = 'Please enter a NIM';
 			foundStudent = null;
+			activeRecord = null;
 			return;
 		}
-		const student = attendanceStore.students.find((s: Student) => s.nim === nim);
-		if (student) {
-			foundStudent = student;
+
+		const { data, error } = await api.search(query);
+
+		if (error) {
+			errorMessage = error;
+			foundStudent = null;
+			activeRecord = null;
+			return;
+		}
+
+		if (data && data.length > 0) {
+			const student = data[0];
+
+			foundStudent = {
+				name: student.nama,
+				nim: student.nim,
+				avatar: student.foto_url
+			};
+
+			const { data: history } = await api.getHistory();
+			const activeSession = history?.find(
+				(record) => record.nim === student.nim && !record.check_out
+			);
+
+			if (activeSession) {
+				activeRecord = {
+					timeIn: new Date(activeSession.check_in).toLocaleTimeString([], {
+						hour: '2-digit',
+						minute: '2-digit'
+					})
+				};
+			} else {
+				activeRecord = null;
+			}
+
 			errorMessage = '';
 		} else {
 			foundStudent = null;
-			errorMessage = 'Student not found with NIM: ' + nim;
+			activeRecord = null;
+			errorMessage = 'Student not found';
 		}
 	};
 
@@ -51,6 +99,7 @@
 		if (!searchQuery.trim()) {
 			foundStudent = null;
 			errorMessage = '';
+			activeRecord = null;
 		}
 	};
 
@@ -58,20 +107,63 @@
 		searchQuery = '';
 		foundStudent = null;
 		errorMessage = '';
+		activeRecord = null;
 	};
 
-	const toggleAttendance = () => {
+	const toggleAttendance = async () => {
 		if (!foundStudent) return;
-		const isCheckingIn = !activeRecord;
-		attendanceStore.toggle(foundStudent.id);
 
-		toastConfig = {
-			type: 'info',
-			msg: isCheckingIn ? 'Check-in Successful' : 'Check-out Successful',
-			desc: isCheckingIn
-				? "Welcome! Don't forget to check out before you leave."
-				: 'Thank you for coming! Have a great day.'
-		};
+		const isCheckingIn = !activeRecord;
+		const nim = foundStudent.nim;
+
+		if (isCheckingIn) {
+			const { data, error } = await api.checkIn(nim);
+
+			if (error) {
+				errorMessage = error;
+				toastConfig = {
+					type: 'info',
+					msg: 'Check-in Failed',
+					desc: error
+				};
+			} else if (data) {
+				activeRecord = {
+					timeIn: new Date(data.check_in).toLocaleTimeString([], {
+						hour: '2-digit',
+						minute: '2-digit'
+					})
+				};
+
+				toastConfig = {
+					type: 'info',
+					msg: 'Check-in Successful',
+					desc: "Welcome! Don't forget to check out before you leave."
+				};
+
+				await loadOccupancy();
+			}
+		} else {
+			const { data, error } = await api.checkOut(nim);
+
+			if (error) {
+				errorMessage = error;
+				toastConfig = {
+					type: 'info',
+					msg: 'Check-out Failed',
+					desc: error
+				};
+			} else if (data) {
+				activeRecord = null;
+
+				toastConfig = {
+					type: 'info',
+					msg: 'Check-out Successful',
+					desc: 'Thank you for coming! Have a great day.'
+				};
+
+				await loadOccupancy();
+			}
+		}
 
 		showToast = true;
 		setTimeout(() => {
