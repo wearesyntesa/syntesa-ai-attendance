@@ -290,7 +290,7 @@
 								<img
 									src={foundStudent.avatar}
 									alt={foundStudent.name}
-									class="mx-auto h-64 w-64 rounded-full bg-gray-100 object-cover ring-8 ring-gray-200/50 dark:bg-neutral-800 dark:ring-neutral-700/50"
+									class="mx-auto h-64 w-64 rounded-full bg-gray-100 object-cover object-top ring-8 ring-gray-200/50 dark:bg-neutral-800 dark:ring-neutral-700/50"
 									in:scale={{ duration: 600, delay: 300, start: 0.8, easing: cubicOut }}
 								/>
 								<div class="mt-8">

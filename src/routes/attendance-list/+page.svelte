@@ -96,7 +96,11 @@
 										in:fade={{ duration: 300, delay: logIndex * 50 }}
 									>
 										<td class="flex items-center gap-2 px-4 py-3">
-											<img src={log.foto_url} class="h-7 w-7 rounded-full object-cover" alt="" />
+											<img
+												src={log.foto_url}
+												class="h-7 w-7 rounded-full object-cover object-top"
+												alt=""
+											/>
 											<span class="font-medium text-gray-900 dark:text-neutral-100">{log.nama}</span
 											>
 										</td>
