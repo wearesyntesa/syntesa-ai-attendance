@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { api, type AttendanceHistory } from '$lib/api';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
 	import { onMount } from 'svelte';
@@ -23,13 +23,25 @@
 		isLoading = false;
 	};
 
+	const convertToWIB = (utcDateString: string): string => {
+		const date = new SvelteDate(utcDateString);
+		date.setHours(date.getHours() + 7);
+		return date.toLocaleTimeString('id-ID', {
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false
+		});
+	};
+
 	let groupedLogs = $derived.by(() => {
 		const groups = new SvelteMap<string, AttendanceHistory[]>();
 
 		logs.forEach((log: AttendanceHistory) => {
-			const date = new Date(log.check_in).toISOString().split('T')[0];
-			if (!groups.has(date)) groups.set(date, []);
-			groups.get(date)?.push(log);
+			const date = new SvelteDate(log.check_in);
+			date.setHours(date.getHours() + 7);
+			const dateStr = date.toISOString().split('T')[0];
+			if (!groups.has(dateStr)) groups.set(dateStr, []);
+			groups.get(dateStr)?.push(log);
 		});
 
 		return Array.from(groups.entries()).sort(([dateA], [dateB]) => dateB.localeCompare(dateA));
@@ -108,10 +120,7 @@
 											>{log.nim}</td
 										>
 										<td class="px-4 py-3 text-gray-600 dark:text-neutral-400">
-											{new Date(log.check_in).toLocaleTimeString([], {
-												hour: '2-digit',
-												minute: '2-digit'
-											})}
+											{convertToWIB(log.check_in)} WIB
 										</td>
 										<td class="px-4 py-3 text-right">
 											<span

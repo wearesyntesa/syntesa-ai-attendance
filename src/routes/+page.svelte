@@ -4,6 +4,7 @@
 	import Notification from '$lib/components/Notification.svelte';
 	import { api } from '$lib/api';
 	import { onMount } from 'svelte';
+	import { SvelteDate } from 'svelte/reactivity';
 
 	interface Student {
 		name: string;
@@ -32,6 +33,16 @@
 	onMount(async () => {
 		await loadOccupancy();
 	});
+
+	const convertToWIB = (utcDateString: string): string => {
+		const date = new SvelteDate(utcDateString);
+		date.setHours(date.getHours() + 7);
+		return date.toLocaleTimeString('id-ID', {
+			hour: '2-digit',
+			minute: '2-digit',
+			hour12: false
+		});
+	};
 
 	const loadOccupancy = async () => {
 		const { data } = await api.getHistory();
@@ -78,10 +89,7 @@
 
 			if (activeSession) {
 				activeRecord = {
-					timeIn: new Date(activeSession.check_in).toLocaleTimeString([], {
-						hour: '2-digit',
-						minute: '2-digit'
-					})
+					timeIn: convertToWIB(activeSession.check_in)
 				};
 			} else {
 				activeRecord = null;
@@ -128,10 +136,7 @@
 				};
 			} else if (data) {
 				activeRecord = {
-					timeIn: new Date(data.check_in).toLocaleTimeString([], {
-						hour: '2-digit',
-						minute: '2-digit'
-					})
+					timeIn: convertToWIB(data.check_in)
 				};
 
 				toastConfig = {
@@ -345,7 +350,7 @@
 													Check-in Time
 												</p>
 												<p class="mt-1 text-2xl text-gray-900 dark:text-neutral-100">
-													{activeRecord.timeIn}
+													{activeRecord.timeIn} WIB
 												</p>
 											</div>
 											<div>
