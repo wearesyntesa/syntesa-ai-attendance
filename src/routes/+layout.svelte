@@ -6,16 +6,19 @@
 	import { cubicOut } from 'svelte/easing';
 	import UniverseBg from '$lib/components/UniverseBg.svelte';
 	import { onMount } from 'svelte';
+	import { api } from '$lib/api';
 
 	let { children } = $props();
 	let isExpanded = $state(false);
 	let isDark = $state(false);
 	let isDesktop = $state(true);
 	let isAuthenticated = $state(false);
+	let usernameInput = $state('');
 	let passwordInput = $state('');
 	let passwordError = $state('');
 	let failedAttempts = $state(0);
 	let isLocked = $state(false);
+	let isLoading = $state(true);
 
 	function toggleDark() {
 		document.documentElement.classList.toggle('dark');
@@ -32,45 +35,65 @@
 		isDesktop = !isMobile && !isTablet && window.innerWidth >= 1024;
 	}
 
-	function handlePasswordSubmit(e: Event) {
-		e.preventDefault();
-
-		if (isLocked) {
-			passwordError = 'Access locked due to too many failed attempts';
+	async function validateToken() {
+		if (!api.isAuthenticated()) {
+			isAuthenticated = false;
+			isLoading = false;
 			return;
 		}
 
-		if (passwordInput === import.meta.env.VITE_APP_PASSWORD) {
+		const { error } = await api.getHistory();
+		if (error) {
+			api.logout();
+			isAuthenticated = false;
+		} else {
+			isAuthenticated = true;
+		}
+		isLoading = false;
+	}
+
+	async function handleLoginSubmit(e: Event) {
+		e.preventDefault();
+		if (isLocked) return;
+
+		const { data, error } = await api.login(usernameInput, passwordInput);
+
+		if (data) {
 			isAuthenticated = true;
 			passwordError = '';
 			failedAttempts = 0;
 		} else {
 			failedAttempts++;
 			passwordInput = '';
-
 			if (failedAttempts >= 3) {
 				isLocked = true;
 				passwordError = 'Access locked due to too many failed attempts';
 			} else {
-				passwordError = `Incorrect password (${failedAttempts}/3 attempts)`;
+				passwordError = error || `Incorrect credentials (${failedAttempts}/3 attempts)`;
 			}
 		}
+	}
+
+	function handleLogout() {
+		api.logout();
+		isAuthenticated = false;
+		usernameInput = '';
+		passwordInput = '';
+		passwordError = '';
+		failedAttempts = 0;
+		isLocked = false;
 	}
 
 	onMount(() => {
 		checkDevice();
 		window.addEventListener('resize', checkDevice);
-
 		const theme = localStorage.getItem('theme');
-		const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-		if (theme === 'dark' || (!theme && prefersDark)) {
+		if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
 			document.documentElement.classList.add('dark');
 			isDark = true;
 		}
-
-		return () => {
-			window.removeEventListener('resize', checkDevice);
-		};
+		validateToken();
+		return () => window.removeEventListener('resize', checkDevice);
 	});
 </script>
 
@@ -80,101 +103,61 @@
 
 <UniverseBg />
 
-{#if !isDesktop}
+{#if isLoading}
+	<div class="flex h-screen items-center justify-center">
+		<div class="text-gray-600 dark:text-neutral-400">Loading...</div>
+	</div>
+{:else if !isDesktop}
 	<div class="flex h-screen items-center justify-center bg-white p-6 dark:bg-neutral-950">
 		<div class="max-w-md text-center">
-			<svg
-				class="mx-auto h-16 w-16 text-gray-400 dark:text-neutral-600"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-				/>
-			</svg>
-			<h1 class="mt-6 text-2xl font-medium text-gray-900 dark:text-neutral-100">Desktop Only</h1>
-			<p class="mt-3 text-gray-600 dark:text-neutral-400">
-				This application is only available on desktop devices. Please access it from a computer with
-				a larger screen.
-			</p>
+			<h1 class="text-2xl font-medium text-gray-900 dark:text-neutral-100">Desktop Only</h1>
+			<p class="mt-3 text-gray-600 dark:text-neutral-400">Please access from a computer.</p>
 		</div>
 	</div>
 {:else if !isAuthenticated}
-	<div class="relative flex h-screen items-center justify-center bg-transparent">
+	<div class="relative flex h-screen items-center justify-center">
 		<div
-			class="w-full max-w-md space-y-8 rounded-lg border border-gray-200 bg-white/80 p-8 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-950/80"
+			class="w-full max-w-md space-y-8 rounded-lg border border-gray-200 bg-white/80 p-8 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-900/90"
 		>
 			<div class="text-center">
-				<h1 class="text-3xl font-medium text-gray-900 dark:text-neutral-100">
-					SE & AI LAB @ UNESA
-				</h1>
-				<p class="mt-2 text-sm text-gray-600 dark:text-neutral-400">
-					Enter password to access the lab attendance system
-				</p>
+				<h1 class="text-3xl font-medium text-gray-900 dark:text-neutral-100">Admin Login</h1>
 			</div>
-
-			{#if isLocked}
-				<div
-					class="rounded-lg border border-red-200 bg-red-50/80 p-6 text-center backdrop-blur-sm dark:border-red-900/50 dark:bg-red-900/20"
-				>
-					<svg
-						class="mx-auto h-12 w-12 text-red-600 dark:text-red-400"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-						/>
-					</svg>
-					<p class="mt-4 font-medium text-red-600 dark:text-red-400">Access Locked</p>
-					<p class="mt-2 text-sm text-red-600 dark:text-red-400">
-						Too many failed login attempts. Please reload the page to try again.
+			<form onsubmit={handleLoginSubmit} class="mt-8 space-y-6">
+				<input
+					type="text"
+					bind:value={usernameInput}
+					placeholder="Username"
+					class="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+					required
+					disabled={isLocked}
+				/>
+				<input
+					type="password"
+					bind:value={passwordInput}
+					placeholder="Password"
+					class="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+					required
+					disabled={isLocked}
+				/>
+				{#if passwordError}
+					<p class="text-sm font-bold text-red-600 dark:text-red-400">
+						{passwordError}
 					</p>
-				</div>
-			{:else}
-				<form onsubmit={handlePasswordSubmit} class="mt-8 space-y-6">
-					<div>
-						<label for="password" class="sr-only">Password</label>
-						<input
-							id="password"
-							type="password"
-							bind:value={passwordInput}
-							placeholder="Enter password"
-							disabled={isLocked}
-							class="w-full rounded-lg border border-gray-200 bg-white/80 px-4 py-3 text-gray-900 backdrop-blur-sm transition-all outline-none focus:border-apple-blue-500 focus:outline-2 focus:outline-offset-2 focus:outline-apple-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-800 dark:bg-neutral-900/50 dark:text-neutral-100 dark:placeholder:text-neutral-600"
-							required
-						/>
-					</div>
-
-					{#if passwordError}
-						<p class="text-sm font-medium text-red-600 dark:text-red-400">
-							{passwordError}
-						</p>
-					{/if}
-
-					<button
-						type="submit"
-						disabled={isLocked}
-						class="w-full rounded-lg bg-apple-blue-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-apple-blue-500/20 transition-all hover:bg-apple-blue-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-apple-blue-500 dark:bg-apple-blue-400"
-					>
-						Access Lab System
-					</button>
-				</form>
-			{/if}
+				{/if}
+				<button
+					type="submit"
+					class="w-full rounded-lg bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-500"
+					disabled={isLocked}
+				>
+					Login
+				</button>
+			</form>
 		</div>
 	</div>
 {:else}
-	<div class="relative flex h-screen overflow-hidden bg-transparent">
+	<div class="relative flex h-screen overflow-hidden">
 		<aside
-			class="flex flex-col border-r border-gray-200 bg-white/80 text-gray-900 backdrop-blur-md transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] dark:border-neutral-800 dark:bg-neutral-950/80 dark:text-neutral-100 {isExpanded
+			class="flex flex-col border-r border-gray-200 bg-white/80 backdrop-blur-md transition-all duration-200 dark:border-neutral-800 dark:bg-neutral-950/80 {isExpanded
 				? 'w-64'
 				: 'w-16'}"
 		>
@@ -183,11 +166,11 @@
 			>
 				<button
 					onclick={() => (isExpanded = !isExpanded)}
-					class="rounded-sm p-2 text-gray-600 transition-colors duration-200 hover:bg-gray-100/50 focus:outline-2 focus:outline-offset-2 focus:outline-apple-blue-500 dark:text-neutral-400 dark:hover:bg-neutral-800/50 dark:focus:outline-apple-blue-400"
-					aria-label={isExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+					aria-label={isExpanded ? 'Collapse menu' : 'Expand menu'}
+					class="p-2 text-gray-600 dark:text-neutral-100"
 				>
 					<svg
-						class="h-5 w-5 transition-transform duration-300 {isExpanded ? '' : 'rotate-180'}"
+						class="h-5 w-5 transition-transform {isExpanded ? '' : 'rotate-180'}"
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
@@ -201,14 +184,13 @@
 					</svg>
 				</button>
 			</div>
-
 			<nav class="flex-1 space-y-1 p-2">
 				<a
 					href={resolve('/')}
-					class="group flex items-center gap-3 rounded-sm p-3 text-sm font-medium text-gray-600 transition-colors duration-200 hover:bg-gray-50 hover:text-gray-900 focus:outline-2 focus:outline-offset-2 focus:outline-apple-blue-500 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-apple-blue-400 dark:focus:outline-apple-blue-400"
-					title="Home"
+					aria-label="Home"
+					class="flex items-center gap-3 rounded-lg p-3 text-sm hover:bg-gray-100 dark:text-neutral-100 dark:hover:bg-neutral-900"
 				>
-					<svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
@@ -217,51 +199,39 @@
 						/>
 					</svg>
 					{#if isExpanded}
-						<span
-							class="transition-opacity duration-300"
-							in:fly={{ x: -10, duration: 200, easing: cubicOut }}>Home</span
-						>
+						<span in:fly={{ x: -10, duration: 200, easing: cubicOut }}>Home</span>
 					{/if}
 				</a>
-				<a
-					href={resolve('/attendance-list')}
-					class="group flex items-center gap-3 rounded-sm p-3 text-sm font-medium text-gray-600 transition-colors duration-200 hover:bg-gray-50 hover:text-gray-900 focus:outline-2 focus:outline-offset-2 focus:outline-apple-blue-500 dark:text-neutral-400 dark:hover:bg-neutral-900 dark:hover:text-apple-blue-400 dark:focus:outline-apple-blue-400"
-					title="Activity Log"
+				<button
+					onclick={handleLogout}
+					aria-label="Logout"
+					class="flex w-full items-center gap-3 rounded-lg p-3 text-sm hover:bg-gray-100 dark:text-neutral-100 dark:hover:bg-neutral-900"
 				>
-					<svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
 							stroke-width="2"
-							d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+							d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
 						/>
 					</svg>
 					{#if isExpanded}
-						<span
-							class="transition-opacity duration-300"
-							in:fly={{ x: -10, duration: 200, easing: cubicOut }}>Activity Log</span
-						>
+						<span in:fly={{ x: -10, duration: 200, easing: cubicOut }}>Logout</span>
 					{/if}
-				</a>
+				</button>
 			</nav>
 		</aside>
-
-		<div class="flex flex-1 flex-col overflow-hidden bg-transparent">
+		<div class="flex flex-1 flex-col overflow-hidden">
 			<header
 				class="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white/40 px-6 py-2 backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-950/40"
 			>
-				<h1 class="text-sm font-medium text-gray-900 dark:text-neutral-100">SE & AI LAB @ UNESA</h1>
-				<button
-					onclick={toggleDark}
-					class="group relative flex items-center justify-center rounded-sm p-2 text-gray-600 transition-colors duration-200 hover:bg-gray-100/50 focus:outline-2 focus:outline-offset-2 focus:outline-apple-blue-500 dark:text-neutral-400 dark:hover:bg-neutral-800/50 dark:focus:outline-apple-blue-400"
-					aria-label="Toggle dark mode"
-					type="button"
-				>
+				<h1 class="text-sm font-medium dark:text-neutral-100">SE & AI LAB</h1>
+				<button onclick={toggleDark} aria-label="Toggle dark mode" class="p-2">
 					<div class="relative h-5 w-5">
 						<svg
-							class="absolute inset-0 h-5 w-5 transition-all duration-300 {isDark
-								? 'scale-0 rotate-90 opacity-0'
-								: 'scale-100 rotate-0 opacity-100'}"
+							class="absolute inset-0 h-5 w-5 transition-opacity {isDark
+								? 'opacity-0'
+								: 'opacity-100'} text-gray-600"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -274,9 +244,9 @@
 							/>
 						</svg>
 						<svg
-							class="absolute inset-0 h-5 w-5 text-apple-blue-400 transition-all duration-300 {isDark
-								? 'scale-100 rotate-0 opacity-100'
-								: 'scale-0 -rotate-90 opacity-0'}"
+							class="absolute inset-0 h-5 w-5 transition-opacity {isDark
+								? 'opacity-100'
+								: 'opacity-0'} text-blue-400"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -291,18 +261,7 @@
 					</div>
 				</button>
 			</header>
-
-			<main class="flex-1 overflow-y-auto bg-transparent">
-				{@render children()}
-			</main>
-
-			<footer
-				class="shrink-0 border-t border-gray-200 bg-white/40 px-6 py-1.5 text-center backdrop-blur-md dark:border-neutral-800 dark:bg-neutral-950/40"
-			>
-				<p class="text-xs text-gray-500 dark:text-neutral-400">
-					© {new Date().getFullYear()} SE LAB UNESA
-				</p>
-			</footer>
+			<main class="flex-1 overflow-y-auto">{@render children()}</main>
 		</div>
 	</div>
 {/if}

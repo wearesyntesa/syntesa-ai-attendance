@@ -51,23 +51,42 @@ export interface AttendanceHistory {
 	check_out: string | null;
 }
 
+export interface AdminAuthResponse {
+	access_token: string;
+	token_type: string;
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 class AttendanceAPI {
+	private getToken(): string | null {
+		return localStorage.getItem('admin_token');
+	}
+
 	private async request<T>(
 		endpoint: string,
 		options?: RequestInit
 	): Promise<{ data?: T; error?: string }> {
+		const headers = new Headers(options?.headers);
+		headers.set('Content-Type', 'application/json');
+
+		const token = this.getToken();
+		if (token) {
+			headers.set('Authorization', `Bearer ${token}`);
+		}
+
 		try {
 			const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-				headers: {
-					'Content-Type': 'application/json',
-					...options?.headers
-				},
-				...options
+				...options,
+				headers
 			});
 
 			if (!response.ok) {
+				if (response.status === 401) {
+					this.logout();
+					window.location.reload();
+					return { error: 'Session expired. Please login again.' };
+				}
 				const error = await response.json();
 				return { error: error.detail || 'An error occurred' };
 			}
@@ -77,6 +96,29 @@ class AttendanceAPI {
 		} catch (err) {
 			return { error: err instanceof Error ? err.message : 'Network error' };
 		}
+	}
+
+	async login(
+		username: string,
+		password: string
+	): Promise<{ data?: AdminAuthResponse; error?: string }> {
+		const result = await this.request<AdminAuthResponse>('/auth/admin', {
+			method: 'POST',
+			body: JSON.stringify({ username, password })
+		});
+
+		if (result.data) {
+			localStorage.setItem('admin_token', result.data.access_token);
+		}
+		return result;
+	}
+
+	logout(): void {
+		localStorage.removeItem('admin_token');
+	}
+
+	isAuthenticated(): boolean {
+		return !!this.getToken();
 	}
 
 	async search(q: string): Promise<{ data?: AttendanceResponseBase[]; error?: string }> {
