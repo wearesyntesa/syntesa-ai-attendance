@@ -59,7 +59,7 @@ export interface AdminAuthResponse {
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
 class AttendanceAPI {
-	private getToken(): string | null {
+	getToken(): string | null {
 		return localStorage.getItem('admin_token');
 	}
 
@@ -84,8 +84,7 @@ class AttendanceAPI {
 			if (!response.ok) {
 				if (response.status === 401) {
 					this.logout();
-					window.location.reload();
-					return { error: 'Session expired. Please login again.' };
+					return { error: 'User or Password is invalid.' };
 				}
 				const error = await response.json();
 				return { error: error.detail || 'An error occurred' };
