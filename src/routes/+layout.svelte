@@ -207,6 +207,17 @@
 					>
 					{#if isExpanded}<span in:fly={{ x: -10 }}>Home</span>{/if}
 				</a>
+				<a
+					href={resolve('/attendance-list')}
+					class="flex items-center gap-3 rounded-lg p-3 hover:bg-gray-100 dark:text-neutral-100 dark:hover:bg-neutral-900"
+				>
+					<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+						><path
+							d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+						/></svg
+					>
+					{#if isExpanded}<span in:fly={{ x: -10 }}>Attendance List</span>{/if}
+				</a>
 				<button
 					onclick={handleLogout}
 					class="flex w-full items-center gap-3 rounded-lg p-3 hover:bg-gray-100 dark:text-neutral-100 dark:hover:bg-neutral-900"
